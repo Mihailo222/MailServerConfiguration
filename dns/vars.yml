@@ -1,0 +1,7 @@
+dns_server_location: /mnt/c/Users/Acer/vagrant_projects_for_wsl/drsmail/dns
+bind_conf_folder: config
+zone_files_folder: zone_files
+first_2ndlvldomain_name: domain1.com
+second_2ndlvldomain_name: domain2.com
+reverse_zone: 56.168.192.db
+dns_ip: 192.168.56.10

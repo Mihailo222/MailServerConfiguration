@@ -1,0 +1,5 @@
+@ 1w IN SOA ns.domain1.com. root.domain1.com. 1 1d 1h 1w 1h
+@ 1w IN NS ns.domain1.com.
+
+@ 1w IN MX 0 mail2.domain2.com.
+mail2 1w IN A 192.168.56.12

@@ -1,0 +1,286 @@
+---
+ - name: Install mail server with mailing web app and MySQL database.
+   hosts: mailserver
+   become: true
+
+   vars_files:
+    - mailserver/vars.yml
+
+   handlers:
+    - name: restart apache
+      service:
+       name: apache2
+       state: restarted
+
+   
+   tasks:  
+    - name: Install postfix
+      apt:
+       name: postfix
+       update_cache: yes
+       cache_valid_time: 3600
+       state: present
+
+    - name: Ensure postfix is installed and running.
+      service:
+       name: postfix
+       state: started
+       enabled: yes
+
+    - name: Fill postfix configuration files.
+      copy:
+       src: "{{ mail_server_location }}/{{ mail_config_folder }}/main.cf"
+       dest: "/etc/postfix/main.cf"
+       remote_src: false
+
+    - name: Restart postfix.
+      service:
+       name: postfix
+       state: restarted
+    
+    - name: Add new mail users.
+      user:
+       name: "{{ item.name }}"
+       password: "{{ item.password | password_hash('sha512') }}" #try hashed
+       group: "{{ group }}"
+      with_items:
+       - name: "{{ username }}"
+         password: "{{ password }}"
+
+
+    
+
+    - name: Install dovecot packages. 
+      apt:
+       name:
+        - dovecot-core
+        - dovecot-pop3d
+        - dovecot-imapd
+       update_cache: yes
+       cache_valid_time: 3600
+       state: present 
+   
+    - name: Copy dovecot configuration files.
+      copy:
+       src: "{{ item.src }}"
+       dest: "{{ item.dest }}"
+       remote_src: false
+      with_items:
+
+       - src: "{{ mail_server_location }}/{{dovecot_config_folder}}/dovecot.conf"
+         dest: "/etc/dovecot/dovecot.conf"
+       - src: "{{ mail_server_location }}/{{ dovecot_config_folder }}/10-auth.conf"
+         dest: "/etc/dovecot/conf.d/10-auth.conf"
+       - src: "{{ mail_server_location }}/{{ dovecot_config_folder }}/10-mail.conf"
+         dest: "/etc/dovecot/conf.d/10-mail.conf"
+
+
+    - name: Restart dovecot service.
+      service:
+       name: dovecot
+       state: restarted
+
+
+
+    - name: Install web server and database packages.
+      apt:
+       name:
+        - apache2
+        - mariadb-server
+       update_cache: yes
+       cache_valid_time: 3600
+       state: present
+
+    - name: Ensure apache2 is started and running.
+      service:
+       name: apache2
+       state: started
+
+    - name: Ensure mariadb-server is started and running.
+      service:
+       name: mariadb
+       state: started 
+
+    #Local Database Configuration.
+    #importing a playbook
+    - name: Install pip.
+      apt:
+       name: python3-pip
+       update_cache: yes
+       cache_valid_time: 3600
+       state: present
+
+    - name: Install PyMySQL.
+      pip:
+       name: pymysql
+       state: present
+
+
+    - name: Update mysql root password for all root accounts.
+      mysql_user:
+       name: "{{ root_username }}"
+       password: "{{ root_passwd }}"
+       host: "localhost"
+       login_unix_socket: "{{login_unix_socket_folder}}"
+       login_user: "{{ root_username }}"
+       login_password: "{{ root_passwd }}"
+       check_implicit_admin: yes
+       priv: "*.*:ALL,GRANT"
+
+    - name: Create a new database.
+      mysql_db:
+       name: "{{ database_name }}"
+       state: present
+       login_user: "{{ root_username }}"
+       login_password: "{{ root_passwd }}"
+
+    - name: Create a new user for our roundcube database.
+      mysql_user:
+       name: "{{ login_user_uname }}"
+       password: " {{ login_user_passwd }}"
+       host: "{{ host }}"
+       login_unix_socket: "{{ login_unix_socket_folder }}"
+       login_user: "{{ root_username }}"
+       login_password: "{{ root_passwd }}"
+       check_implicit_admin: yes
+       priv: "{{database_name}}.*:ALL,GRANT"
+       state: present   
+
+   #installing roundcube web app for mail transfering.
+    - name: Installing HTTP dependencies and other commands.
+      apt:
+       name:
+        - lsb-release
+        - ca-certificates
+        - apt-transport-https
+        - software-properties-common
+        - unzip
+       update_cache: yes
+       cache_valid_time: 3600
+       state: present
+    
+    - name: Add ondrej/php PPA repository
+      apt_repository:
+       repo: "ppa:ondrej/php"
+    
+    
+    - name: Installing php8.0 packages.
+      apt:
+       name: "{{item.pack}}"
+       update_cache: yes
+       cache_valid_time: 3600
+       state: present
+      with_items:
+       - pack: "php{{php_version}}"
+       - pack: "php{{php_version}}-mysql"
+       - pack: "php{{php_version}}-gd"
+       - pack: "php{{php_version}}-common"
+       - pack: "php{{php_version}}-imagick"
+       - pack: "php{{php_version}}-imap"
+       - pack: "php{{php_version}}-xml"
+       - pack: "php{{php_version}}-opcache"
+       - pack: "php{{php_version}}-mbstring"
+       - pack: "php{{php_version}}-curl"
+       - pack: "php{{php_version}}-zip"
+       - pack: "php{{php_version}}-bz2"
+       - pack: "php{{php_version}}-intl"
+
+
+
+         #configuring apache web server service
+    - name: Make a folder for roundcube web app.
+      file:
+       path: "/var/www/{{roundcube_unziped_package_folder}}"
+       owner: www-data
+       state: directory
+
+
+    - name: Make a showing public folder for web app.
+      file:
+       path: "/var/www/{{roundcube_unziped_package_folder}}/{{hosting_folder_name}}"
+       owner: www-data
+       state: directory
+
+    - name: Configuring vh_roundcube .conf file in apache2 folder.
+      file:
+       path: "/etc/apache2/sites-available/{{roundcube_unziped_package_folder}}.conf"
+       state: touch
+    
+      
+    - name: Copy apache2 .config file.
+      copy:
+       src: "{{ mail_server_location }}/{{web_app_folder}}/{{roundcube_unziped_package_folder}}.conf"
+       dest: "/etc/apache2/sites-available/{{roundcube_unziped_package_folder}}.conf"
+       remote_src: false
+
+    - name: Disable 000-default.conf Apache default web page.
+      file:
+       path: "/etc/apache2/sites-enabled/000-default.conf"
+       state: absent
+      notify:
+       - restart apache
+
+    - name: Enable apache2 .conf file.
+      file:
+       src: "/etc/apache2/sites-available/{{roundcube_unziped_package_folder}}.conf"
+       dest: "/etc/apache2/sites-enabled/{{roundcube_unziped_package_folder}}.conf"
+       state: link
+      notify:
+       - restart apache
+
+    - name: Downloading roundcube app.
+      get_url:
+       url: "https://github.com/roundcube/roundcubemail/releases/download/{{roundcube_version}}/roundcubemail-{{roundcube_version}}-complete.tar.gz"
+       dest: ~/ #root folder
+
+    - name: Unarchive roundcube command.
+      unarchive:
+       src: "~/roundcubemail-{{roundcube_version}}-complete.tar.gz"
+       dest: "/var/www/{{roundcube_unziped_package_folder}}/{{hosting_folder_name}}"
+       remote_src: true
+
+    - name: Change ownership of /var/www/vh_roundcube/public.
+      file:
+       path: "/var/www/{{roundcube_unziped_package_folder}}/{{hosting_folder_name}}"
+       owner: www-data
+       group: www-data
+       mode: "0755"
+       recurse: yes
+
+
+    - name: Changing roundcube configuration.
+      copy:
+       src: "{{mail_server_location}}/{{web_app_folder}}/defaults.inc.php"
+       dest: "/var/www/{{roundcube_unziped_package_folder}}/{{hosting_folder_name}}/roundcubemail-{{roundcube_version}}/config/defaults.inc.php"      
+       remote_src: false
+
+    - name: Change nameserver file.
+      lineinfile:
+       dest: "/etc/resolv.conf"
+       regexp: "^nameserver"
+       line: "nameserver {{dns_server_ip_address}}"
+       state: present
+
+
+
+    - name: Execute mysql script.
+      mysql_db:
+       login_user: "{{ root_username }}"
+       login_password: "{{ root_passwd }}"
+       login_host: "{{host}}"
+       login_port: "{{mysql_port}}"
+       name: "{{database_name}}"
+       state: import
+       target: "/var/www/{{roundcube_unziped_package_folder}}/{{hosting_folder_name}}/roundcubemail-{{roundcube_version}}/SQL/mysql.initial.sql"
+
+
+
+
+
+    #after installation, you have to delete installer from  /var/www/vh_roundcube/public/roundcubemail-1.6.6/ folder!
+
+
+
+
+
+

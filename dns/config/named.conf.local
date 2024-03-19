@@ -1,0 +1,20 @@
+include "/etc/bind/zones.rfc1918";
+
+zone "domain1.com" IN {
+
+type master;
+file "/etc/bind/domain1.com.fwd";
+};
+
+zone "domain2.com" IN {
+
+type master;
+file "/etc/bind/domain2.com.fwd";
+};
+
+
+zone "56.168.192.in-addr.arpa" IN {
+
+type master;
+file "/etc/bind/56.168.192.db";
+};

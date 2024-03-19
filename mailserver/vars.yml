@@ -1,0 +1,21 @@
+---
+mail_server_location: /mnt/c/Users/Acer/vagrant_projects_for_wsl/drsmail/mailserver
+mail_config_folder: postfix_config
+dovecot_config_folder: dovecot_config
+username: ana
+password: ana
+group: users
+root_username: root
+root_passwd: root
+login_user_uname: roundcubeuser
+login_user_passwd: pass1
+database_name: roundcubedb
+host: localhost
+login_unix_socket_folder: /var/run/mysqld/mysqld.sock
+php_version: 8.0
+roundcube_unziped_package_folder: vh_roundcube
+hosting_folder_name: public
+web_app_folder: web_app
+roundcube_version: 1.6.6
+dns_server_ip_address: 192.168.56.10
+mysql_port: 3306

@@ -1,0 +1,25 @@
+options {
+
+      directory "/var/cache/bind";
+
+
+         forwarders {
+            8.8.8.8;
+            8.8.4.4;
+         };
+
+        dnssec-validation auto;
+        auth-nxdomain no;
+
+        listen-on-v6 {::;};
+        listen-on port 53 { 127.0.0.1; 192.168.56.10; };
+
+
+        recursion yes;
+        allow-recursion { any; };
+        allow-query { any; };
+        allow-query-cache {any; };
+
+
+        listen-on-v6 { any; };
+};

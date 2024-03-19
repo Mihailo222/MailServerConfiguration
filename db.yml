@@ -1,0 +1,45 @@
+---
+ - name: Install MariaDB.
+   hosts: mailserver
+   become: true
+
+   tasks:
+     - name: Install pip.
+       apt:
+        name: python3-pip
+        state: present
+
+     - name: Install PyMySQL.
+       pip:
+        name: pymysql
+        state: present
+
+     - name: Update mysql root password for all root accounts.
+       mysql_user:
+        name: "root"
+        password: "root"
+        host: "localhost"
+        login_unix_socket: "/var/run/mysqld/mysqld.sock"
+        login_user: "root"
+        login_password: "root"
+        check_implicit_admin: yes
+        priv: "*.*:ALL,GRANT"
+
+     - name: Create a new database.
+       mysql_db:
+        name: "roundcubedb"
+        state: present
+        login_user: "root"
+        login_password: "root"
+
+     - name: Create a new user for our roundcube database.
+       mysql_user:
+        name: "root"
+        password: "root"
+        host: "localhost"
+        login_unix_socket: "/var/run/mysqld/mysqld.sock"
+        login_user: "roundcubeuser"
+        login_password: "pass1"
+        check_implicit_admin: yes
+        priv: "roundcubedb.*:ALL,GRANT"
+        state: present

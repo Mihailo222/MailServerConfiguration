@@ -1,0 +1,85 @@
+---
+ - name: Install bind.
+   hosts: dns
+   become: true
+
+   vars_files:
+    - dns/vars.yml
+   
+   handlers:
+    - name: restart bind
+      service:
+       name: bind9
+       state: restarted
+    
+   tasks:
+
+    - name: Ensure bind9 is installed.
+      apt:
+       name: bind9
+       update_cache: yes
+       cache_valid_time: 3600
+       state: present
+
+    - name: Ensure bind9 is installed and running.
+      service:
+       name: bind9
+       state: started
+       enabled: yes
+  
+    - name: Copy bind configuration files.
+      copy:
+       src: "{{ item.src }}"
+       dest: "{{ item.dest }}"
+       owner: bind
+       group: bind
+       mode: 0644
+       remote_src: false
+      notify:
+       - restart bind      
+
+      with_items:
+       - src: "{{ dns_server_location }}/{{ bind_conf_folder }}/named.conf.options"
+         dest: "/etc/bind/named.conf.options"
+       - src: "{{ dns_server_location }}/{{ bind_conf_folder }}/named.conf.local"
+         dest: "/etc/bind/named.conf.local"
+
+
+    - name: Make files for zones on remote server.
+      file:
+       path: "{{ item.value }}" #task koji nije idemponentan 
+       state: touch
+
+      with_items:
+       - value: "/etc/bind/{{ first_2ndlvldomain_name }}.fwd"
+       - value: "/etc/bind/{{ second_2ndlvldomain_name }}.fwd"
+       - value: "/etc/bind/56.168.192.db"
+
+    - name: Copy configuration.
+      copy:
+       src: "{{ item.src }}"
+       dest: "{{ item.dest }}"
+       owner: bind
+       group: bind
+       mode: 0644
+       remote_src: false
+      
+      notify:
+       - restart bind
+
+      with_items:
+       - src: "{{ dns_server_location }}/{{ zone_files_folder }}/{{ first_2ndlvldomain_name }}.fwd"
+         dest: "/etc/bind/{{ first_2ndlvldomain_name }}.fwd"
+       - src:  "{{ dns_server_location }}/{{ zone_files_folder }}/{{ second_2ndlvldomain_name }}.fwd"
+         dest: "/etc/bind/{{ second_2ndlvldomain_name }}.fwd"
+       - src: "{{ dns_server_location }}/{{ zone_files_folder }}/{{ reverse_zone }}"
+         dest: "/etc/bind/{{ reverse_zone }}"
+  
+    - name: Change nameserver file.
+      lineinfile:
+       dest: "/etc/resolv.conf"
+       regexp: "^nameserver"
+       line: "nameserver {{ dns_ip }}"
+       state: present
+      notify:
+       - restart bind

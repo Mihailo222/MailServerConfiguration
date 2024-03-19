@@ -1,0 +1,8 @@
+@ 1w IN SOA ns.domain1.com. root.domain1.com. 1 1d 1h 1w 1h
+@ 1w IN NS ns.domain1.com.
+ns.domain1.com. 1w IN A 192.168.56.10
+
+@ 1w IN MX 0 mail1.domain1.com.
+mail1 1w IN A 192.168.56.11
+
+@ 1w IN TXT "v=spf1 192.168.56.11 -all"
